@@ -1,31 +1,60 @@
-# Pipedream을 이용한 블로그 자동 포스팅 테스트
+# n8n을 이용한 블로그 자동 포스팅 테스트
 
 ## WorkFlow
-<img width="200" height="602" alt="image" src="https://github.com/user-attachments/assets/4a668b21-89b9-4d46-af14-ee605eb1b43e" />
+<img width="1542" height="314" alt="image" src="https://github.com/user-attachments/assets/a97d2a6f-31f6-47f8-a765-0753925efc50" />
 
-### 1. trigger
+### 1. Schedule Trigger
 
-- 매일 아침 9시 트리거 작동
+- Trigger Rules
 
-### 2. fetch_rss_feed
+  - Trigger Interval: Minutes
+  - Minutes Between Triggers: 5
 
-- 검색할 RSS 피드를 input에 입력([연합뉴스 최신기사](https://www.yna.co.kr/rss/news.xml))
+### 2.1 RSS Read
 
-- 여러 RSS 피드를 검색하고 날짜별로 정렬된 항목의 병합된 배열을 반환
+- URL: https://www.yna.co.kr/rss/news.xml
 
-### 3. check_posted_articles
+### 2.2 Google Sheets
 
-- 구글 시트 계정을 input에 입력
+- Operation: Get Row(s)
 
-  - A1 셀의 값을 모두 가져옴
+### 3. Merge
 
-### 4. select_new_article
+- Mode: SQL Qeury
+- Number of Inputs: 2
 
-- RSS 피드를 비교하고 게시되지 않은 게시물을 선택
+### 4. Limit
 
-### 5. create_blog_post
+- Max Items: 1
+- Keep: First Items
 
-- WordPress에 새로운 포스트 작성
+### 5. HTTP Request
+
+- Method: GET
+- URL: `{{ $json.link }}`
+
+### 6. HTML
+
+- Operation: Extract HTML Content
+- Source Data: JSON
+- JSON Property: data
+- Extraction Values
+  - Key: extractedContent
+  - CSS Selector: article
+  - Return Value: HTML
+
+### 7. Code
+
+- Mode: Run Once for All Items
+- Language: JavaScript
+
+### 8. Send email
+
+- Operation: Send
+
+### 9. Append row in sheet
+
+> Version 1.108.2
 
 <br/>
 
