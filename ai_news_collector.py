@@ -28,6 +28,7 @@ load_dotenv()
 
 NOTION_API_KEY = os.getenv("NOTION_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Notion 데이터베이스 ID (생성된 데이터베이스)
 DATABASE_ID = "3e6b5982ea584534afa6618150f29d21"
@@ -216,7 +217,18 @@ class NotionClient:
             # 구분선
             children.append({"object": "block", "type": "divider", "divider": {}})
 
-            # 3. 원문 내용 (수정 없이 그대로)
+            # 3. 대표 이미지 (있는 경우)
+            image_url = news_data.get("image_url")
+            if image_url:
+                children.append(
+                    {
+                        "object": "block",
+                        "type": "image",
+                        "image": {"type": "external", "external": {"url": image_url}},
+                    }
+                )
+
+            # 4. 원문 내용 (가독성 향상)
             children.append(
                 {
                     "object": "block",
@@ -231,21 +243,47 @@ class NotionClient:
 
             # 원문 내용을 단락별로 분리 (가독성 향상)
             original_content = news_data.get("content", "")
-
-            # 문장 단위로 단락 구분 (마침표+공백 또는 다 기준)
             paragraphs = self._split_into_paragraphs(original_content)
 
-            for para in paragraphs:
+            # 첫 번째 단락은 리드문으로 강조
+            if paragraphs:
+                first_para = paragraphs[0].strip()
+                if first_para:
+                    children.append(
+                        {
+                            "object": "block",
+                            "type": "quote",
+                            "quote": {
+                                "rich_text": [
+                                    {
+                                        "type": "text",
+                                        "text": {"content": f"📍 {first_para[:2000]}"},
+                                    }
+                                ],
+                                "color": "default",
+                            },
+                        }
+                    )
+                paragraphs = paragraphs[1:]  # 첫 번째 제외
+
+            # 나머지 단락들
+            para_icons = ["▫️", "▪️"]  # 번갈아 사용
+            for i, para in enumerate(paragraphs):
                 para = para.strip()
                 if not para:
                     continue
+
+                icon = para_icons[i % 2]
                 children.append(
                     {
                         "object": "block",
                         "type": "paragraph",
                         "paragraph": {
                             "rich_text": [
-                                {"type": "text", "text": {"content": para[:2000]}}
+                                {
+                                    "type": "text",
+                                    "text": {"content": f"{icon} {para[:1990]}"},
+                                }
                             ]
                         },
                     }
@@ -308,10 +346,36 @@ class NotionClient:
 
         # 이미 단락 구분이 있으면 그대로 사용
         if "\n\n" in text:
-            return [p.strip() for p in text.split("\n\n") if p.strip()]
+            paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+            # 너무 짧은 단락은 합치기
+            merged = []
+            current = ""
+            for p in paragraphs:
+                if len(p) < 50 and current:
+                    current += " " + p
+                else:
+                    if current:
+                        merged.append(current)
+                    current = p
+            if current:
+                merged.append(current)
+            return merged
 
         if "\n" in text:
-            return [p.strip() for p in text.split("\n") if p.strip()]
+            lines = [p.strip() for p in text.split("\n") if p.strip()]
+            # 한 줄씩 있으면 2-3줄씩 합치기
+            merged = []
+            current = ""
+            for line in lines:
+                if len(current) + len(line) < 300:
+                    current = (current + " " + line).strip() if current else line
+                else:
+                    if current:
+                        merged.append(current)
+                    current = line
+            if current:
+                merged.append(current)
+            return merged
 
         # 문장 단위로 분리 (한국어/영어 문장 부호 고려)
         sentences = re.split(r"(?<=[.!?。])\s+", text)
@@ -353,27 +417,33 @@ class NotionClient:
 
 
 # =============================================================================
-# 뉴스 분석기 (Claude API 사용)
+# 뉴스 분석기 (OpenAI / Claude API 선택 가능)
 # =============================================================================
 
 
 class NewsAnalyzer:
-    """Claude API를 사용한 뉴스 분석"""
+    """AI API를 사용한 뉴스 분석 (OpenAI 또는 Claude)"""
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, provider: str = "openai"):
+        """
+        Args:
+            api_key: API 키
+            provider: "openai" (기본) 또는 "claude"
+        """
         self.api_key = api_key
-        self.base_url = "https://api.anthropic.com/v1/messages"
+        self.provider = provider.lower()
+
+        if self.provider == "claude":
+            self.base_url = "https://api.anthropic.com/v1/messages"
+            self.model = "claude-sonnet-4-20250514"
+        else:
+            self.base_url = "https://api.openai.com/v1/chat/completions"
+            self.model = "gpt-5-nano"  # 가장 저렴한 모델 ($0.05/$0.40 per 1M tokens)
 
     def analyze_news(self, title: str, content: str) -> dict:
         """뉴스 분석 및 분류 (원문 보존)"""
 
-        headers = {
-            "x-api-key": self.api_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-        }
-
-        prompt = f"""다음 AI 관련 뉴스를 분석해주세요.
+        prompt = f"""다음 뉴스가 AI/인공지능 **기술** 관련 뉴스인지 분석해주세요.
 
 제목: {title}
 내용: {content[:3000]}
@@ -382,71 +452,242 @@ class NewsAnalyzer:
 
 다음 JSON 형식으로 응답해주세요:
 {{
+    "is_ai_related": true 또는 false,
+    "rejection_reason": "AI 관련 없는 경우 이유",
     "summary": "원문 내용을 바탕으로 2-3문장 요약 (한국어)",
-    "key_points": ["기사에서 직접 추출한 핵심 포인트 1", "핵심 포인트 2", "핵심 포인트 3"],
-    "technologies": ["관련 기술 목록 - LLM, 이미지 생성, 추론 AI, 에이전트, 멀티모달, 오픈소스, 강화학습, 로보틱스, 음성/오디오 중 선택"],
-    "organization": "주요 기업/기관 - OpenAI, Google, Anthropic, Meta, Microsoft, NVIDIA, 국내 연구기관, 기타 중 선택",
-    "importance": "중요도 - 🔥 주요, 📌 일반, 📝 참고 중 선택"
+    "key_points": ["핵심 포인트 1", "핵심 포인트 2", "핵심 포인트 3"],
+    "technologies": ["LLM", "이미지 생성", "추론 AI", "에이전트", "멀티모달", "오픈소스", "강화학습", "로보틱스", "음성/오디오" 중 선택],
+    "organization": "OpenAI, Google, Anthropic, Meta, Microsoft, NVIDIA, 국내 연구기관, 기타 중 선택",
+    "importance": "🔥 주요, 📌 일반, 📝 참고 중 선택"
 }}
+
+**AI 관련성 판단 기준:**
+✅ AI 관련 (is_ai_related: true):
+- AI 기술 개발/연구 (새 모델, 알고리즘, 논문)
+- AI 기업 동향 (OpenAI, Google, Anthropic 등의 사업/인사/투자)
+- AI 정책/규제/윤리
+- AI 제품/서비스 출시
+- AI 하드웨어 (GPU, NPU, AI칩)
+
+❌ AI 비관련 (is_ai_related: false):
+- **AI로 만든 콘텐츠**: AI웹툰, AI만화, AI그림, AI영상 등 (AI 기술 자체가 아님)
+- **AI 이슈 트렌드/요약**: 연예/사회 뉴스를 AI가 정리한 것
+- 연예인 뉴스, 스포츠, 날씨, 일반 사회 이슈
+- 제목에 [AI웹툰], [AI만화], [AI 이슈트렌드] 등이 포함된 경우
 
 JSON만 출력하세요."""
 
-        data = {
-            "model": "claude-sonnet-4-20250514",
-            "max_tokens": 1000,
-            "messages": [{"role": "user", "content": prompt}],
-        }
-
         try:
-            response = requests.post(self.base_url, headers=headers, json=data)
-
-            # API 오류 확인
-            if response.status_code != 200:
-                print(f"API 오류 ({response.status_code}): {response.text[:200]}")
-                return self._fallback_analysis(title, content)
-
-            result = response.json()
-
-            if "content" in result and len(result["content"]) > 0:
-                text = result["content"][0]["text"]
-
-                # JSON 추출 시도 (여러 방법)
-                import re
-
-                # 1. 직접 파싱 시도
-                try:
-                    return json.loads(text)
-                except:
-                    pass
-
-                # 2. JSON 블록 추출 (```json ... ``` 형식)
-                json_match = re.search(r"```json\s*([\s\S]*?)\s*```", text)
-                if json_match:
-                    try:
-                        return json.loads(json_match.group(1))
-                    except:
-                        pass
-
-                # 3. 중괄호로 시작하는 JSON 찾기
-                json_match = re.search(r"\{[\s\S]*\}", text)
-                if json_match:
-                    try:
-                        return json.loads(json_match.group(0))
-                    except:
-                        pass
-
-                print(f"JSON 추출 실패. 응답: {text[:200]}...")
+            if self.provider == "openai":
+                response = self._call_openai(prompt)
             else:
-                print(f"API 응답 형식 오류: {result}")
+                response = self._call_claude(prompt)
+
+            if response:
+                return response
         except Exception as e:
             print(f"분석 오류: {e}")
 
         # 폴백: 키워드 기반 분류
         return self._fallback_analysis(title, content)
 
+    def _call_openai(self, prompt: str) -> dict:
+        """OpenAI API 호출"""
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        data = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_completion_tokens": 1000,  # GPT-5 모델은 max_completion_tokens 사용
+            "temperature": 0.3,
+        }
+
+        response = requests.post(self.base_url, headers=headers, json=data)
+
+        if response.status_code != 200:
+            print(f"OpenAI API 오류 ({response.status_code}): {response.text[:200]}")
+            return None
+
+        result = response.json()
+
+        if "choices" in result and len(result["choices"]) > 0:
+            text = result["choices"][0]["message"]["content"]
+            return self._parse_json_response(text)
+
+        return None
+
+    def _call_claude(self, prompt: str) -> dict:
+        """Claude API 호출"""
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
+
+        data = {
+            "model": self.model,
+            "max_tokens": 1000,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+
+        response = requests.post(self.base_url, headers=headers, json=data)
+
+        if response.status_code != 200:
+            print(f"Claude API 오류 ({response.status_code}): {response.text[:200]}")
+            return None
+
+        result = response.json()
+
+        if "content" in result and len(result["content"]) > 0:
+            text = result["content"][0]["text"]
+            return self._parse_json_response(text)
+
+        return None
+
+    def _parse_json_response(self, text: str) -> dict:
+        """JSON 응답 파싱"""
+        import re
+
+        # 1. 직접 파싱 시도
+        try:
+            return json.loads(text)
+        except:
+            pass
+
+        # 2. JSON 블록 추출 (```json ... ``` 형식)
+        json_match = re.search(r"```json\s*([\s\S]*?)\s*```", text)
+        if json_match:
+            try:
+                return json.loads(json_match.group(1))
+            except:
+                pass
+
+        # 3. 중괄호로 시작하는 JSON 찾기
+        json_match = re.search(r"\{[\s\S]*\}", text)
+        if json_match:
+            try:
+                return json.loads(json_match.group(0))
+            except:
+                pass
+
+        print(f"JSON 추출 실패. 응답: {text[:200]}...")
+        return None
+
     def _fallback_analysis(self, title: str, content: str) -> dict:
         """키워드 기반 폴백 분석"""
         text = (title + " " + content).lower()
+
+        # AI 관련성 체크 (키워드 기반)
+        ai_keywords = [
+            "ai",
+            "artificial intelligence",
+            "인공지능",
+            "machine learning",
+            "머신러닝",
+            "deep learning",
+            "딥러닝",
+            "neural network",
+            "신경망",
+            "llm",
+            "gpt",
+            "claude",
+            "gemini",
+            "chatgpt",
+            "openai",
+            "anthropic",
+            "transformer",
+            "자연어처리",
+            "nlp",
+            "computer vision",
+            "컴퓨터 비전",
+            "reinforcement learning",
+            "강화학습",
+            "generative ai",
+            "생성형 ai",
+            "foundation model",
+            "파운데이션 모델",
+            "nvidia",
+            "엔비디아",
+            "gpu",
+            "cuda",
+            "tensor",
+            "텐서",
+            "추론",
+            "inference",
+        ]
+
+        # 비AI 키워드 (제외 대상)
+        non_ai_keywords = [
+            "결혼",
+            "이혼",
+            "열애",
+            "연예",
+            "아이돌",
+            "드라마",
+            "예능",
+            "가수",
+            "배우",
+            "축구",
+            "야구",
+            "농구",
+            "올림픽",
+            "월드컵",
+            "경기 결과",
+            "승리",
+            "패배",
+            "날씨",
+            "기온",
+            "강수량",
+            "미세먼지",
+        ]
+
+        # 제목 기반 필터링 (AI로 만든 콘텐츠는 AI 기술 뉴스가 아님)
+        title_lower = title.lower()
+        ai_content_patterns = [
+            "ai웹툰",
+            "ai만화",
+            "ai 웹툰",
+            "ai 만화",
+            "ai그림",
+            "ai 그림",
+            "ai이미지",
+            "ai 이미지",
+            "ai영상",
+            "ai 영상",
+            "ai이슈트렌드",
+            "ai 이슈트렌드",
+            "ai 이슈 트렌드",
+            "[ai웹툰]",
+            "[ai만화]",
+            "[ai 웹툰]",
+            "[ai 만화]",
+        ]
+
+        is_ai_generated_content = any(
+            pattern in title_lower for pattern in ai_content_patterns
+        )
+
+        has_ai_keyword = any(keyword in text for keyword in ai_keywords)
+        has_non_ai_keyword = any(keyword in text for keyword in non_ai_keywords)
+
+        # AI 키워드가 있고 비AI 키워드가 없으면 관련
+        # 단, AI로 만든 콘텐츠(웹툰, 만화 등)는 제외
+        is_ai_related = (
+            has_ai_keyword and not has_non_ai_keyword and not is_ai_generated_content
+        )
+
+        # 거부 사유 설정
+        if is_ai_generated_content:
+            rejection_reason = "AI로 만든 콘텐츠 (AI 기술 뉴스 아님)"
+        elif has_non_ai_keyword:
+            rejection_reason = "비AI 관련 콘텐츠 (연예/스포츠/일반)"
+        elif not has_ai_keyword:
+            rejection_reason = "AI 관련 키워드 없음"
+        else:
+            rejection_reason = ""
 
         # 기술 분류
         technologies = []
@@ -462,8 +703,11 @@ JSON만 출력하세요."""
                 break
 
         return {
+            "is_ai_related": is_ai_related,
+            "rejection_reason": rejection_reason,
             "summary": title,
-            "technologies": technologies[:3] if technologies else ["LLM"],
+            "key_points": [],
+            "technologies": technologies[:3] if technologies else ["기타"],
             "organization": organization,
             "importance": "📌 일반",
         }
@@ -510,17 +754,24 @@ class NewsCollector:
                     if pub_date < cutoff_date:
                         continue
 
+                    # 본문 및 이미지 추출
+                    content_data = self._get_content(entry)
+
                     news_item = {
                         "title": entry.get("title", ""),
                         "link": entry.get("link", ""),
-                        "content": self._get_content(entry),
+                        "content": content_data.get("content", ""),
+                        "image_url": content_data.get("image_url"),
                         "date": pub_date.strftime("%Y-%m-%d"),
                         "source": feed_info["name"],
                     }
                     all_news.append(news_item)
 
                     # 디버그 출력
-                    print(f"📅 {news_item['title'][:50]}... -> {news_item['date']}")
+                    img_status = "🖼️" if news_item["image_url"] else "📄"
+                    print(
+                        f"{img_status} {news_item['title'][:50]}... -> {news_item['date']}"
+                    )
 
             except Exception as e:
                 print(f"피드 수집 오류 ({feed_info['name']}): {e}")
@@ -619,8 +870,10 @@ class NewsCollector:
 
         return None
 
-    def _get_content(self, entry) -> str:
-        """기사 본문 추출 - RSS 내용 + 웹 스크래핑"""
+    def _get_content(self, entry) -> dict:
+        """기사 본문 및 이미지 추출 - RSS 내용 + 웹 스크래핑"""
+        result = {"content": "", "image_url": None}
+
         # 먼저 RSS에서 기본 내용 가져오기
         rss_content = ""
 
@@ -637,14 +890,60 @@ class NewsCollector:
         # 기사 링크에서 전체 내용 스크래핑 시도
         link = entry.get("link", "")
         if link:
-            full_content = self._scrape_article(link)
-            if full_content and len(full_content) > len(rss_content):
-                return full_content
+            scraped = self._scrape_article(link)
+            if scraped.get("content") and len(scraped["content"]) > len(
+                self._strip_html(rss_content)
+            ):
+                result["content"] = scraped["content"]
+            else:
+                result["content"] = self._strip_html(rss_content)
 
-        return rss_content
+            # 이미지 URL 저장
+            if scraped.get("image_url"):
+                result["image_url"] = scraped["image_url"]
+        else:
+            result["content"] = self._strip_html(rss_content)
 
-    def _scrape_article(self, url: str) -> str:
-        """기사 페이지에서 본문 스크래핑"""
+        return result
+
+    def _strip_html(self, html_content: str) -> str:
+        """HTML 태그 제거하고 순수 텍스트 반환"""
+        if not html_content:
+            return ""
+
+        try:
+            from bs4 import BeautifulSoup
+
+            soup = BeautifulSoup(html_content, "html.parser")
+
+            # 불필요한 태그 제거
+            for tag in soup.select("script, style, nav, footer, aside, figure, img"):
+                tag.decompose()
+
+            # 텍스트 추출
+            text = soup.get_text(separator="\n", strip=True)
+
+            # 연속 공백/줄바꿈 정리
+            import re
+
+            text = re.sub(r"\n{3,}", "\n\n", text)
+            text = re.sub(r" {2,}", " ", text)
+
+            return text.strip()
+        except ImportError:
+            # BeautifulSoup 없으면 간단한 정규식으로 처리
+            import re
+
+            text = re.sub(r"<[^>]+>", "", html_content)
+            text = re.sub(r"\s+", " ", text)
+            return text.strip()
+        except:
+            return html_content
+
+    def _scrape_article(self, url: str) -> dict:
+        """기사 페이지에서 본문과 이미지 스크래핑"""
+        result = {"content": "", "image_url": None}
+
         try:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -654,8 +953,14 @@ class NewsCollector:
 
             # HTML 파싱
             from bs4 import BeautifulSoup
+            from urllib.parse import urljoin
 
             soup = BeautifulSoup(response.text, "html.parser")
+
+            # 대표 이미지 추출
+            image_url = self._extract_main_image(soup, url)
+            if image_url:
+                result["image_url"] = image_url
 
             # 일반적인 기사 본문 선택자들 시도
             content = None
@@ -681,7 +986,7 @@ class NewsCollector:
                 if element:
                     # 불필요한 요소 제거
                     for tag in element.select(
-                        "script, style, nav, footer, aside, .ad, .advertisement, .social-share"
+                        "script, style, nav, footer, aside, .ad, .advertisement, .social-share, .related-article, .related_article, .sns_share, .article-sns, .byline, .reporter-info, .copyright, .article-footer, .tag-group, .keyword, .article-tag"
                     ):
                         tag.decompose()
 
@@ -690,8 +995,9 @@ class NewsCollector:
                         break
 
             if content:
-                # 너무 길면 자르기
-                return content[:5000]
+                # 콘텐츠 정리
+                content = self._clean_article_content(content)
+                result["content"] = content[:8000]  # 더 많은 내용 포함
 
         except ImportError:
             print("⚠️ BeautifulSoup 미설치. pip install beautifulsoup4 실행 필요")
@@ -699,7 +1005,440 @@ class NewsCollector:
             # 스크래핑 실패 시 조용히 넘어감
             pass
 
-        return ""
+        return result
+
+    def _clean_article_content(self, content: str) -> str:
+        """기사 본문에서 불필요한 메타데이터 제거"""
+        import re
+
+        if not content:
+            return ""
+
+        lines = content.split("\n")
+        cleaned_lines = []
+
+        # 제외할 패턴들
+        skip_patterns = [
+            r"^좋아요\s*$",
+            r"^\d+\s*$",  # 숫자만 있는 줄
+            r"^관련기사\s*$",
+            r"^다른기사\s*보기",
+            r"^키워드\s*$",
+            r"^#\w+",  # 해시태그
+            r"^저작권자",
+            r"무단전재",
+            r"재배포.*금지",
+            r"^기자$",
+            r"@.*\.com",  # 이메일
+            r"^news@",
+            r"^\S+기자$",
+            r"^▶",  # 관련 기사 링크
+            r"^☞",
+            r"^\[관련기사\]",
+            r"^\[.*기자\]$",
+            r"^사진=",
+            r"^\(사진=",
+            r"^출처=",
+            r"^\(출처=",
+            r"^ⓒ",
+            r"^©",
+            r"^Copyrights",
+            r"AI학습.*금지",
+            r"뉴스제공",
+        ]
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # 너무 짧은 줄 제외 (3자 미만)
+            if len(line) < 3:
+                continue
+
+            # 패턴 매칭으로 제외
+            should_skip = False
+            for pattern in skip_patterns:
+                if re.search(pattern, line, re.IGNORECASE):
+                    should_skip = True
+                    break
+
+            if should_skip:
+                continue
+
+            cleaned_lines.append(line)
+
+        return "\n\n".join(cleaned_lines)
+
+    def _extract_main_image(self, soup, base_url: str) -> str:
+        """기사의 대표 이미지 URL 추출"""
+        from urllib.parse import urljoin
+
+        # 이미지 선택자 (우선순위 순)
+        image_selectors = [
+            # Open Graph 이미지 (가장 신뢰할 수 있음)
+            'meta[property="og:image"]',
+            # Twitter 카드 이미지
+            'meta[name="twitter:image"]',
+            # 기사 본문 내 첫 번째 이미지
+            "article img",
+            "#article-view-content-div img",
+            ".article-body img",
+            ".article_body img",
+            ".article-content img",
+            'div[itemprop="articleBody"] img',
+        ]
+
+        for selector in image_selectors:
+            element = soup.select_one(selector)
+            if element:
+                # meta 태그인 경우
+                if element.name == "meta":
+                    image_url = element.get("content")
+                # img 태그인 경우
+                else:
+                    image_url = element.get("src") or element.get("data-src")
+
+                if image_url:
+                    # 상대 경로를 절대 경로로 변환
+                    image_url = urljoin(base_url, image_url)
+
+                    # 유효한 이미지 URL인지 확인 (기본적인 필터링)
+                    if self._is_valid_image_url(image_url):
+                        return image_url
+
+        return None
+
+    def _is_valid_image_url(self, url: str) -> bool:
+        """유효한 이미지 URL인지 확인"""
+        if not url:
+            return False
+
+        # 광고/트래킹 이미지 제외
+        exclude_patterns = [
+            "pixel",
+            "tracking",
+            "analytics",
+            "beacon",
+            "advertisement",
+            "banner",
+            "ad.",
+            "ads.",
+            "1x1",
+            "spacer",
+            "blank",
+            "transparent",
+        ]
+
+        url_lower = url.lower()
+        for pattern in exclude_patterns:
+            if pattern in url_lower:
+                return False
+
+        # 이미지 확장자 또는 이미지 서비스 확인
+        valid_extensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"]
+        has_valid_ext = any(ext in url_lower for ext in valid_extensions)
+
+        # 이미지 서비스 URL (확장자 없이 이미지 제공)
+        image_services = ["wp-content/uploads", "images", "img", "photo", "media"]
+        is_image_service = any(svc in url_lower for svc in image_services)
+
+        return has_valid_ext or is_image_service
+
+
+# =============================================================================
+# 마크다운 파일 저장
+# =============================================================================
+
+
+class MarkdownArchive:
+    """뉴스를 월별 마크다운 파일로 저장"""
+
+    def __init__(self, base_dir: str = None):
+        """
+        Args:
+            base_dir: 저장 기본 경로. None이면 스크립트 위치 사용
+        """
+        if base_dir:
+            self.base_dir = base_dir
+        else:
+            self.base_dir = os.path.dirname(os.path.abspath(__file__))
+
+    def save_news(self, news: dict, analysis: dict) -> bool:
+        """
+        뉴스를 일별 마크다운 파일에 저장
+
+        Args:
+            news: 뉴스 데이터 (title, link, content, date, source)
+            analysis: 분석 결과 (summary, technologies, organization, importance, key_points)
+
+        Returns:
+            bool: 저장 성공 여부 (중복이면 False)
+        """
+        # 날짜 파싱
+        try:
+            news_date = datetime.strptime(news["date"], "%Y-%m-%d")
+        except:
+            news_date = datetime.now()
+
+        year = str(news_date.year)
+        month = f"{news_date.month:02d}월"
+        day = f"{news_date.month:02d}-{news_date.day:02d}"
+
+        # 폴더 생성: 연도/월/
+        month_dir = os.path.join(self.base_dir, year, month)
+        os.makedirs(month_dir, exist_ok=True)
+
+        # 파일 경로: 연도/월/MM-DD.md
+        md_file = os.path.join(month_dir, f"{day}.md")
+
+        # 중복 체크
+        if self._is_duplicate(md_file, news["title"], news["link"]):
+            return False
+
+        # 마크다운 내용 생성
+        md_content = self._format_news(news, analysis)
+
+        # 일별 파일에 추가
+        self._append_to_file(md_file, md_content, news_date)
+
+        # 월 총괄 파일 업데이트
+        self._update_monthly_index(month_dir, news_date)
+
+        return True
+
+    def _update_monthly_index(self, month_dir: str, news_date: datetime):
+        """월 총괄 파일(README.md) 업데이트"""
+        import re
+
+        index_file = os.path.join(month_dir, "README.md")
+        month_title = news_date.strftime("%Y년 %m월")
+
+        # 해당 월의 모든 일별 파일 수집
+        daily_files = []
+        for filename in sorted(os.listdir(month_dir), reverse=True):  # 최신순
+            if filename.endswith(".md") and filename != "README.md":
+                daily_files.append(filename)
+
+        # 각 일별 파일에서 뉴스 제목 추출
+        toc_content = []
+        total_count = 0
+
+        for daily_file in daily_files:
+            filepath = os.path.join(month_dir, daily_file)
+            day_name = daily_file.replace(".md", "")  # "12-27"
+
+            # 날짜 파싱해서 보기 좋게
+            try:
+                month_num, day_num = day_name.split("-")
+                display_date = f"{int(month_num)}월 {int(day_num)}일"
+            except:
+                display_date = day_name
+
+            with open(filepath, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            # 뉴스 제목 추출
+            news_titles = re.findall(r"### 📰 (.+)", content)
+            news_count = len(news_titles)
+            total_count += news_count
+
+            # 일별 섹션 추가
+            toc_content.append(f"\n### 📅 {display_date} ({news_count}건)")
+            toc_content.append(f"📄 [{day_name}.md](./{daily_file})\n")
+
+            for title in news_titles:
+                display_title = title[:50] + "..." if len(title) > 50 else title
+                toc_content.append(f"- {display_title}")
+
+        # README.md 생성
+        readme_content = f"""# 🤖 AI 뉴스 아카이브 - {month_title}
+
+> 총 **{total_count}건**의 뉴스가 수집되었습니다.
+
+## 📑 목차
+
+{''.join(chr(10) + line for line in toc_content)}
+
+---
+
+*이 파일은 자동으로 생성됩니다.*
+"""
+
+        with open(index_file, "w", encoding="utf-8") as f:
+            f.write(readme_content)
+
+    def _is_duplicate(self, filepath: str, title: str, link: str) -> bool:
+        """파일에서 중복 뉴스 체크"""
+        if not os.path.exists(filepath):
+            return False
+
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                content = f.read()
+                # 제목이나 링크로 중복 확인
+                if title in content or link in content:
+                    return True
+        except:
+            pass
+
+        return False
+
+    def _format_news(self, news: dict, analysis: dict) -> str:
+        """뉴스를 마크다운 형식으로 변환"""
+        lines = []
+
+        # 제목 (제목에서 날짜 태그 제거하여 깔끔하게)
+        import re
+
+        clean_title = re.sub(
+            r"^\[\d{1,2}월\d{1,2}일\]\s*", "", news["title"]
+        )  # [12월26일] 형식 제거
+        clean_title = re.sub(
+            r"^\[\d{4}\.\d{2}\.\d{2}\]\s*", "", clean_title
+        )  # [2025.12.26] 형식 제거
+
+        lines.append(f"### {clean_title}")
+        lines.append("")
+
+        # 메타 정보 (발행일 추가)
+        importance = analysis.get("importance", "📌 일반")
+        org = analysis.get("organization", "기타")
+        techs = ", ".join(analysis.get("technologies", []))
+
+        lines.append(
+            f"> 📅 **{news['date']}** | **{importance}** | {org} | {news['source']}"
+        )
+        if techs:
+            lines.append(f"> 🏷️ {techs}")
+        lines.append("")
+
+        # 요약
+        summary = analysis.get("summary", "")
+        if summary:
+            lines.append("**💡 요약**")
+            lines.append(f"{summary}")
+            lines.append("")
+
+        # 핵심 포인트
+        key_points = analysis.get("key_points", [])
+        if key_points:
+            lines.append("**📌 핵심 포인트**")
+            for point in key_points[:5]:
+                lines.append(f"- {point}")
+            lines.append("")
+
+        # 원문 내용 (최대 1000자)
+        content = news.get("content", "")
+        if content:
+            lines.append("<details>")
+            lines.append("<summary><b>📄 원문 보기</b></summary>")
+            lines.append("")
+            # 원문 정리 (너무 길면 자르기)
+            clean_content = content[:1500].strip()
+            if len(content) > 1500:
+                clean_content += "..."
+            lines.append(clean_content)
+            lines.append("")
+            lines.append("</details>")
+            lines.append("")
+
+        # 출처 링크
+        lines.append(f"🔗 [원문 보기]({news['link']})")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+        return "\n".join(lines)
+
+    def _append_to_file(self, filepath: str, content: str, news_date: datetime):
+        """파일에 내용 추가 (목차 포함)"""
+        date_title = news_date.strftime("%Y년 %m월 %d일")
+
+        # 파일이 없으면 새로 생성
+        if not os.path.exists(filepath):
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(f"# 🤖 AI 뉴스 - {date_title}\n\n")
+                f.write("## 📑 목차\n\n")
+                f.write("<!-- TOC_START -->\n")
+                f.write("<!-- TOC_END -->\n\n")
+                f.write("---\n\n")
+                f.write(content)
+            self._update_toc(filepath)
+            return
+
+        # 기존 파일에 추가
+        with open(filepath, "r", encoding="utf-8") as f:
+            existing = f.read()
+
+        # 구분선(---) 뒤에 새 콘텐츠 추가
+        # 마지막 --- 찾아서 그 뒤에 추가
+        new_content = existing.rstrip() + "\n\n" + content
+
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(new_content)
+
+        # 목차 업데이트
+        self._update_toc(filepath)
+
+    def _update_toc(self, filepath: str):
+        """파일의 목차를 업데이트"""
+        import re
+
+        with open(filepath, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        # 뉴스 제목 추출
+        toc_entries = []
+
+        # 뉴스 제목 찾기 (### 제목 형식)
+        news_pattern = r"### ([^#\n].+)"
+
+        lines = content.split("\n")
+        for line in lines:
+            news_match = re.match(news_pattern, line)
+            if news_match:
+                title = news_match.group(1)
+                # 앵커 생성
+                anchor = self._create_anchor(title)
+                toc_entries.append({"title": title, "anchor": anchor})
+
+        # 목차 생성
+        toc_lines = []
+        for i, entry in enumerate(toc_entries, 1):
+            # 제목이 너무 길면 자르기
+            display_title = (
+                entry["title"][:60] + "..."
+                if len(entry["title"]) > 60
+                else entry["title"]
+            )
+            toc_lines.append(f"{i}. [{display_title}](#{entry['anchor']})")
+
+        toc_content = "\n".join(toc_lines) if toc_lines else "(뉴스 없음)"
+
+        # 목차 영역 교체
+        new_content = re.sub(
+            r"<!-- TOC_START -->.*?<!-- TOC_END -->",
+            f"<!-- TOC_START -->\n{toc_content}\n<!-- TOC_END -->",
+            content,
+            flags=re.DOTALL,
+        )
+
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(new_content)
+
+    def _create_anchor(self, title: str) -> str:
+        """마크다운 앵커 생성 (GitHub 스타일)"""
+        import re
+
+        # 소문자 변환
+        anchor = title.lower()
+        # 이모지 및 특수문자 제거 (한글, 영문, 숫자, 공백, 하이픈만 유지)
+        anchor = re.sub(r"[^\w\s가-힣-]", "", anchor)
+        # 공백을 하이픈으로
+        anchor = re.sub(r"\s+", "-", anchor)
+        anchor = anchor.strip("-")
+        return anchor
 
 
 # =============================================================================
@@ -710,12 +1449,30 @@ class NewsCollector:
 class AINewsBot:
     """AI 뉴스 자동화 봇"""
 
-    def __init__(self):
+    def __init__(self, archive_dir: str = None, provider: str = "openai"):
+        """
+        Args:
+            archive_dir: 마크다운 아카이브 저장 경로 (None이면 스크립트 위치)
+            provider: AI 제공자 - "openai" (기본) 또는 "claude"
+        """
         self.notion = NotionClient(NOTION_API_KEY)
-        self.analyzer = NewsAnalyzer(ANTHROPIC_API_KEY)
         self.collector = NewsCollector(RSS_FEEDS)
+        self.archive = MarkdownArchive(archive_dir)
+        self.provider = provider.lower()
 
-    def run(self, days: int = 1, use_claude: bool = True):
+        # API 키 설정
+        if self.provider == "claude":
+            if not ANTHROPIC_API_KEY:
+                raise ValueError("ANTHROPIC_API_KEY 환경 변수가 설정되지 않았습니다.")
+            self.analyzer = NewsAnalyzer(ANTHROPIC_API_KEY, provider="claude")
+            print(f"🤖 Claude API 사용 (모델: claude-sonnet-4-20250514)")
+        else:
+            if not OPENAI_API_KEY:
+                raise ValueError("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
+            self.analyzer = NewsAnalyzer(OPENAI_API_KEY, provider="openai")
+            print(f"🤖 OpenAI API 사용 (모델: gpt-5-nano) - 💰 최저가!")
+
+    def run(self, days: int = 1, use_ai: bool = True):
         """뉴스 수집 및 업로드 실행"""
         print(f"🔍 최근 {days}일 AI 뉴스 수집 중...")
 
@@ -725,26 +1482,48 @@ class AINewsBot:
 
         uploaded = 0
         skipped = 0
+        filtered = 0
+        md_saved = 0
 
         for news in news_list:
-            # 중복 체크
-            if self.notion.check_duplicate(DATABASE_ID, news["title"]):
+            # 중복 체크 (Notion)
+            notion_duplicate = self.notion.check_duplicate(DATABASE_ID, news["title"])
+
+            if notion_duplicate:
                 print(f"⏭️ 중복 건너뛰기: {news['title'][:30]}...")
                 skipped += 1
                 continue
 
             # 뉴스 분석
-            if use_claude and ANTHROPIC_API_KEY:
+            if use_ai:
                 analysis = self.analyzer.analyze_news(news["title"], news["content"])
             else:
                 analysis = self.analyzer._fallback_analysis(
                     news["title"], news["content"]
                 )
 
+            # AI 관련성 필터
+            if not analysis.get("is_ai_related", True):
+                reason = analysis.get("rejection_reason", "AI 비관련")
+                print(f"🚫 AI 비관련 제외: {news['title'][:30]}... ({reason})")
+                filtered += 1
+                continue
+
+            # 날짜에서 연도/월 추출
+            try:
+                news_date = datetime.strptime(news["date"], "%Y-%m-%d")
+                year = str(news_date.year)
+                month = f"{news_date.month:02d}월"
+            except:
+                year = str(datetime.now().year)
+                month = f"{datetime.now().month:02d}월"
+
             # Notion 속성 구성
             properties = {
                 "제목": {"title": [{"text": {"content": news["title"][:100]}}]},
                 "날짜": {"date": {"start": news["date"]}},
+                "연도": {"select": {"name": year}},
+                "월": {"select": {"name": month}},
                 "출처": {"url": news["link"]},
                 "요약": {
                     "rich_text": [
@@ -767,6 +1546,7 @@ class AINewsBot:
                     "summary": analysis.get("summary", ""),
                     "key_points": analysis.get("key_points", []),
                     "content": news["content"],  # 원문 그대로 사용
+                    "image_url": news.get("image_url"),  # 대표 이미지
                     "link": news["link"],
                     "date": news["date"],
                     "source": news["source"],
@@ -774,14 +1554,31 @@ class AINewsBot:
 
                 result = self.notion.create_page(DATABASE_ID, properties, page_content)
                 if "id" in result:
-                    print(f"✅ 업로드 완료: {news['title'][:40]}...")
+                    img_icon = "🖼️" if news.get("image_url") else "📄"
+                    print(f"✅ {img_icon} Notion 업로드 완료: {news['title'][:40]}...")
                     uploaded += 1
                 else:
-                    print(f"❌ 업로드 실패: {result.get('message', 'Unknown error')}")
+                    print(
+                        f"❌ Notion 업로드 실패: {result.get('message', 'Unknown error')}"
+                    )
             except Exception as e:
-                print(f"❌ 오류: {e}")
+                print(f"❌ Notion 오류: {e}")
 
-        print(f"\n📊 완료! 업로드: {uploaded}개, 중복 건너뛰기: {skipped}개")
+            # 마크다운 파일에 저장
+            try:
+                if self.archive.save_news(news, analysis):
+                    print(f"📝 마크다운 저장 완료: {news['title'][:40]}...")
+                    md_saved += 1
+                else:
+                    print(f"⏭️ 마크다운 중복 건너뛰기: {news['title'][:30]}...")
+            except Exception as e:
+                print(f"❌ 마크다운 저장 오류: {e}")
+
+        print(f"\n📊 완료!")
+        print(f"   - Notion 업로드: {uploaded}개")
+        print(f"   - 마크다운 저장: {md_saved}개")
+        print(f"   - AI 비관련 제외: {filtered}개")
+        print(f"   - 중복 건너뛰기: {skipped}개")
         return uploaded
 
 
@@ -795,7 +1592,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AI 뉴스 자동 수집기")
     parser.add_argument("--days", type=int, default=1, help="수집할 기간 (일)")
     parser.add_argument(
-        "--no-claude", action="store_true", help="Claude API 사용하지 않음"
+        "--no-ai", action="store_true", help="AI API 사용하지 않음 (키워드 기반)"
+    )
+    parser.add_argument(
+        "--provider",
+        type=str,
+        default="openai",
+        choices=["openai", "claude"],
+        help="AI 제공자 선택 (기본: openai - gpt-5-nano)",
+    )
+    parser.add_argument(
+        "--archive-dir", type=str, default=None, help="마크다운 아카이브 저장 경로"
     )
 
     args = parser.parse_args()
@@ -805,5 +1612,13 @@ if __name__ == "__main__":
         print("❌ NOTION_API_KEY 환경 변수를 설정해주세요.")
         exit(1)
 
-    bot = AINewsBot()
-    bot.run(days=args.days, use_claude=not args.no_claude)
+    if not args.no_ai:
+        if args.provider == "openai" and not OPENAI_API_KEY:
+            print("❌ OPENAI_API_KEY 환경 변수를 설정해주세요.")
+            exit(1)
+        elif args.provider == "claude" and not ANTHROPIC_API_KEY:
+            print("❌ ANTHROPIC_API_KEY 환경 변수를 설정해주세요.")
+            exit(1)
+
+    bot = AINewsBot(archive_dir=args.archive_dir, provider=args.provider)
+    bot.run(days=args.days, use_ai=not args.no_ai)
