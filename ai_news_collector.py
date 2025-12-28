@@ -501,8 +501,7 @@ JSON만 출력하세요."""
         data = {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
-            "max_completion_tokens": 1000,  # GPT-5 모델은 max_completion_tokens 사용
-            "temperature": 0.3,
+            "max_completion_tokens": 1000,
         }
 
         response = requests.post(self.base_url, headers=headers, json=data)
