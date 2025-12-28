@@ -168,141 +168,80 @@ class NotionClient:
             children = []
 
             # 1. 요약 섹션 (AI 분석 결과)
-            children.append(
-                {
-                    "object": "block",
-                    "type": "callout",
-                    "callout": {
-                        "rich_text": [
+            summary = news_data.get("summary", "요약 없음")
+            if summary:
+                children.append(
+                    {
+                        "object": "block",
+                        "type": "callout",
+                        "callout": {
+                            "rich_text": [
+                                {"type": "text", "text": {"content": summary}}
+                            ],
+                            "icon": {"emoji": "💡"},
+                            "color": "blue_background",
+                        },
+                    }
+                )
+
+            # 구분선
+            children.append({"object": "block", "type": "divider", "divider": {}})
+
+            # 2. 이미지 표시 (최대 3개)
+            all_images = news_data.get("all_images", [])
+            if not all_images and news_data.get("image_url"):
+                all_images = [news_data.get("image_url")]
+
+            for img_url in all_images[:3]:  # 최대 3개
+                if img_url:
+                    children.append(
+                        {
+                            "object": "block",
+                            "type": "image",
+                            "image": {"type": "external", "external": {"url": img_url}},
+                        }
+                    )
+
+            # 3. 핵심 내용 (원문에서 추출한 문장들)
+            key_sentences = news_data.get("key_sentences", [])
+            if key_sentences:
+                children.append(
+                    {
+                        "object": "block",
+                        "type": "heading_3",
+                        "heading_3": {
+                            "rich_text": [
+                                {"type": "text", "text": {"content": "핵심 내용"}}
+                            ]
+                        },
+                    }
+                )
+
+                # 각 핵심 문장을 인용 블록으로 표시
+                for sentence in key_sentences[:5]:  # 최대 5문장
+                    if sentence and sentence.strip():
+                        children.append(
                             {
-                                "type": "text",
-                                "text": {
-                                    "content": news_data.get("summary", "요약 없음")
+                                "object": "block",
+                                "type": "quote",
+                                "quote": {
+                                    "rich_text": [
+                                        {
+                                            "type": "text",
+                                            "text": {
+                                                "content": sentence.strip()[:2000]
+                                            },
+                                        }
+                                    ],
+                                    "color": "default",
                                 },
                             }
-                        ],
-                        "icon": {"emoji": "💡"},
-                        "color": "blue_background",
-                    },
-                }
-            )
-
-            # 2. 핵심 포인트 (있는 경우)
-            key_points = news_data.get("key_points", [])
-            if key_points:
-                children.append(
-                    {
-                        "object": "block",
-                        "type": "heading_2",
-                        "heading_2": {
-                            "rich_text": [
-                                {"type": "text", "text": {"content": "📌 핵심 포인트"}}
-                            ]
-                        },
-                    }
-                )
-                for point in key_points[:5]:
-                    children.append(
-                        {
-                            "object": "block",
-                            "type": "bulleted_list_item",
-                            "bulleted_list_item": {
-                                "rich_text": [
-                                    {"type": "text", "text": {"content": point}}
-                                ]
-                            },
-                        }
-                    )
+                        )
 
             # 구분선
             children.append({"object": "block", "type": "divider", "divider": {}})
 
-            # 3. 대표 이미지 (있는 경우)
-            image_url = news_data.get("image_url")
-            if image_url:
-                children.append(
-                    {
-                        "object": "block",
-                        "type": "image",
-                        "image": {"type": "external", "external": {"url": image_url}},
-                    }
-                )
-
-            # 4. 원문 내용 (가독성 향상)
-            children.append(
-                {
-                    "object": "block",
-                    "type": "heading_2",
-                    "heading_2": {
-                        "rich_text": [
-                            {"type": "text", "text": {"content": "📰 원문 내용"}}
-                        ]
-                    },
-                }
-            )
-
-            # 원문 내용을 단락별로 분리 (가독성 향상)
-            original_content = news_data.get("content", "")
-            paragraphs = self._split_into_paragraphs(original_content)
-
-            # 첫 번째 단락은 리드문으로 강조
-            if paragraphs:
-                first_para = paragraphs[0].strip()
-                if first_para:
-                    children.append(
-                        {
-                            "object": "block",
-                            "type": "quote",
-                            "quote": {
-                                "rich_text": [
-                                    {
-                                        "type": "text",
-                                        "text": {"content": f"📍 {first_para[:2000]}"},
-                                    }
-                                ],
-                                "color": "default",
-                            },
-                        }
-                    )
-                paragraphs = paragraphs[1:]  # 첫 번째 제외
-
-            # 나머지 단락들
-            para_icons = ["▫️", "▪️"]  # 번갈아 사용
-            for i, para in enumerate(paragraphs):
-                para = para.strip()
-                if not para:
-                    continue
-
-                icon = para_icons[i % 2]
-                children.append(
-                    {
-                        "object": "block",
-                        "type": "paragraph",
-                        "paragraph": {
-                            "rich_text": [
-                                {
-                                    "type": "text",
-                                    "text": {"content": f"{icon} {para[:1990]}"},
-                                }
-                            ]
-                        },
-                    }
-                )
-
-            # 구분선
-            children.append({"object": "block", "type": "divider", "divider": {}})
-
-            # 4. 출처 정보
-            children.append(
-                {
-                    "object": "block",
-                    "type": "heading_2",
-                    "heading_2": {
-                        "rich_text": [{"type": "text", "text": {"content": "🔗 출처"}}]
-                    },
-                }
-            )
-
+            # 4. 원문 링크
             if news_data.get("link"):
                 children.append(
                     {
@@ -322,11 +261,11 @@ class NotionClient:
                             {
                                 "type": "text",
                                 "text": {
-                                    "content": f"📅 발행일: {news_data.get('date', 'N/A')} | 📰 출처: {news_data.get('source', 'N/A')}"
+                                    "content": f"발행일: {news_data.get('date', 'N/A')}  |  출처: {news_data.get('source', 'N/A')}"
                                 },
                             }
                         ],
-                        "icon": {"emoji": "ℹ️"},
+                        "icon": {"emoji": "📄"},
                         "color": "gray_background",
                     },
                 }
@@ -446,34 +385,33 @@ class NewsAnalyzer:
         prompt = f"""다음 뉴스가 AI/인공지능 **기술** 관련 뉴스인지 분석해주세요.
 
 제목: {title}
-내용: {content[:3000]}
-
-중요: 원문의 내용을 절대 수정, 삭제, 추가하지 마세요. 분석만 해주세요.
+내용: {content[:4000]}
 
 다음 JSON 형식으로 응답해주세요:
 {{
     "is_ai_related": true 또는 false,
     "rejection_reason": "AI 관련 없는 경우 이유",
-    "summary": "원문 내용을 바탕으로 2-3문장 요약 (한국어)",
-    "key_points": ["핵심 포인트 1", "핵심 포인트 2", "핵심 포인트 3"],
+    "summary": "2-3문장 요약 (한국어)",
+    "key_sentences": ["원문에서 핵심 문장 1", "원문에서 핵심 문장 2", ...],
     "technologies": ["LLM", "이미지 생성", "추론 AI", "에이전트", "멀티모달", "오픈소스", "강화학습", "로보틱스", "음성/오디오" 중 선택],
     "organization": "OpenAI, Google, Anthropic, Meta, Microsoft, NVIDIA, 국내 연구기관, 기타 중 선택",
     "importance": "🔥 주요, 📌 일반, 📝 참고 중 선택"
 }}
 
-**AI 관련성 판단 기준:**
-✅ AI 관련 (is_ai_related: true):
-- AI 기술 개발/연구 (새 모델, 알고리즘, 논문)
-- AI 기업 동향 (OpenAI, Google, Anthropic 등의 사업/인사/투자)
-- AI 정책/규제/윤리
-- AI 제품/서비스 출시
-- AI 하드웨어 (GPU, NPU, AI칩)
+**key_sentences 규칙 (매우 중요):**
+- 원문에서 가장 중요한 문장을 **그대로 복사**
+- 최소 1문장, 최대 5문장
+- 절대 수정하거나 요약하지 말고, 원문 그대로 사용
+- 기사의 핵심 정보를 담은 문장 선택
 
-❌ AI 비관련 (is_ai_related: false):
-- **AI로 만든 콘텐츠**: AI웹툰, AI만화, AI그림, AI영상 등 (AI 기술 자체가 아님)
-- **AI 이슈 트렌드/요약**: 연예/사회 뉴스를 AI가 정리한 것
-- 연예인 뉴스, 스포츠, 날씨, 일반 사회 이슈
-- 제목에 [AI웹툰], [AI만화], [AI 이슈트렌드] 등이 포함된 경우
+**key_sentences 제외 대상:**
+- 이미지 캡션/설명 (예: "사진=...", "(사진:...)", "이미지:...", "출처=...")
+- 기자 정보, 저작권 문구
+- 날짜/장소만 있는 문장
+
+**AI 관련성 판단:**
+✅ AI 관련: AI 기술/연구, AI 기업 동향, AI 정책/규제, AI 제품/서비스
+❌ AI 비관련: AI웹툰/만화 (AI 생성 콘텐츠), 연예/스포츠
 
 JSON만 출력하세요."""
 
@@ -484,12 +422,66 @@ JSON만 출력하세요."""
                 response = self._call_claude(prompt)
 
             if response:
+                # key_sentences에서 이미지 캡션 필터링
+                if "key_sentences" in response:
+                    response["key_sentences"] = self._filter_image_captions(
+                        response["key_sentences"]
+                    )
                 return response
         except Exception as e:
             print(f"분석 오류: {e}")
 
         # 폴백: 키워드 기반 분류
         return self._fallback_analysis(title, content)
+
+    def _filter_image_captions(self, sentences: list) -> list:
+        """이미지 캡션/설명 문장 필터링"""
+        import re
+
+        if not sentences:
+            return []
+
+        # 이미지 캡션 패턴
+        caption_patterns = [
+            r"^사진[=:]",
+            r"^\(사진[=:]",
+            r"^이미지[=:]",
+            r"^\(이미지[=:]",
+            r"^출처[=:]",
+            r"^\(출처[=:]",
+            r"^사진 제공",
+            r"본지\s*DB",
+            r"제공\s*사진",
+            r"캡처\s*화면",
+            r"스크린샷",
+            r"^▲",
+            r"^\[사진\]",
+            r"AI\s*생성.*이미지",
+            r"이미지.*AI\s*생성",
+        ]
+
+        filtered = []
+        for sentence in sentences:
+            if not sentence or not sentence.strip():
+                continue
+
+            sentence = sentence.strip()
+
+            # 패턴 매칭으로 이미지 캡션 제외
+            is_caption = False
+            for pattern in caption_patterns:
+                if re.search(pattern, sentence, re.IGNORECASE):
+                    is_caption = True
+                    break
+
+            # 너무 짧은 문장 제외 (20자 미만)
+            if len(sentence) < 20:
+                is_caption = True
+
+            if not is_caption:
+                filtered.append(sentence)
+
+        return filtered[:5]  # 최대 5문장
 
     def _call_openai(self, prompt: str) -> dict:
         """OpenAI API 호출"""
@@ -501,7 +493,7 @@ JSON만 출력하세요."""
         data = {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
-            "max_completion_tokens": 1000,
+            "max_completion_tokens": 1000,  # GPT-5 모델은 max_completion_tokens 사용, temperature 미지원
         }
 
         response = requests.post(self.base_url, headers=headers, json=data)
@@ -550,6 +542,12 @@ JSON만 출력하세요."""
         """JSON 응답 파싱"""
         import re
 
+        if not text:
+            return None
+
+        # 디버깅: 응답 앞부분 출력
+        # print(f"DEBUG 응답: {text[:500]}")
+
         # 1. 직접 파싱 시도
         try:
             return json.loads(text)
@@ -564,15 +562,73 @@ JSON만 출력하세요."""
             except:
                 pass
 
-        # 3. 중괄호로 시작하는 JSON 찾기
+        # 3. ``` ... ``` 형식 (json 표시 없이)
+        json_match = re.search(r"```\s*([\s\S]*?)\s*```", text)
+        if json_match:
+            try:
+                return json.loads(json_match.group(1))
+            except:
+                pass
+
+        # 4. 중괄호로 시작하는 JSON 찾기 (가장 바깥쪽 중괄호)
         json_match = re.search(r"\{[\s\S]*\}", text)
         if json_match:
             try:
                 return json.loads(json_match.group(0))
             except:
-                pass
+                # JSON 내부의 특수문자 처리 시도
+                json_str = json_match.group(0)
+                # 줄바꿈을 이스케이프
+                json_str = json_str.replace("\n", "\\n")
+                try:
+                    return json.loads(json_str)
+                except:
+                    pass
 
-        print(f"JSON 추출 실패. 응답: {text[:200]}...")
+        # 5. 키-값 패턴으로 수동 추출 시도
+        try:
+            result = {}
+
+            # is_ai_related 추출
+            ai_match = re.search(
+                r'"is_ai_related"\s*:\s*(true|false)', text, re.IGNORECASE
+            )
+            if ai_match:
+                result["is_ai_related"] = ai_match.group(1).lower() == "true"
+
+            # rejection_reason 추출
+            reason_match = re.search(r'"rejection_reason"\s*:\s*"([^"]*)"', text)
+            if reason_match:
+                result["rejection_reason"] = reason_match.group(1)
+
+            # summary 추출
+            summary_match = re.search(r'"summary"\s*:\s*"([^"]*)"', text)
+            if summary_match:
+                result["summary"] = summary_match.group(1)
+
+            # importance 추출
+            importance_match = re.search(r'"importance"\s*:\s*"([^"]*)"', text)
+            if importance_match:
+                result["importance"] = importance_match.group(1)
+
+            # organization 추출
+            org_match = re.search(r'"organization"\s*:\s*"([^"]*)"', text)
+            if org_match:
+                result["organization"] = org_match.group(1)
+
+            if "is_ai_related" in result:
+                # 기본값 설정
+                result.setdefault("rejection_reason", "")
+                result.setdefault("summary", "")
+                result.setdefault("key_sentences", [])
+                result.setdefault("technologies", ["기타"])
+                result.setdefault("organization", "기타")
+                result.setdefault("importance", "📌 일반")
+                return result
+        except:
+            pass
+
+        print(f"JSON 추출 실패. 응답: {text[:100]}...")
         return None
 
     def _fallback_analysis(self, title: str, content: str) -> dict:
@@ -701,11 +757,20 @@ JSON만 출력하세요."""
                 organization = org
                 break
 
+        # 폴백용 핵심 문장 추출 (이미지 캡션 제외)
+        import re
+
+        sentences = re.split(r"[.!?。]\s+", content)
+        raw_sentences = [
+            s.strip() + "." for s in sentences if s.strip() and len(s.strip()) > 20
+        ]
+        key_sentences = self._filter_image_captions(raw_sentences)[:2]
+
         return {
             "is_ai_related": is_ai_related,
             "rejection_reason": rejection_reason,
             "summary": title,
-            "key_points": [],
+            "key_sentences": key_sentences,
             "technologies": technologies[:3] if technologies else ["기타"],
             "organization": organization,
             "importance": "📌 일반",
@@ -761,13 +826,15 @@ class NewsCollector:
                         "link": entry.get("link", ""),
                         "content": content_data.get("content", ""),
                         "image_url": content_data.get("image_url"),
+                        "all_images": content_data.get("all_images", []),  # 모든 이미지
                         "date": pub_date.strftime("%Y-%m-%d"),
                         "source": feed_info["name"],
                     }
                     all_news.append(news_item)
 
                     # 디버그 출력
-                    img_status = "🖼️" if news_item["image_url"] else "📄"
+                    img_count = len(content_data.get("all_images", []))
+                    img_status = f"🖼️({img_count})" if img_count > 0 else "📄"
                     print(
                         f"{img_status} {news_item['title'][:50]}... -> {news_item['date']}"
                     )
@@ -871,7 +938,7 @@ class NewsCollector:
 
     def _get_content(self, entry) -> dict:
         """기사 본문 및 이미지 추출 - RSS 내용 + 웹 스크래핑"""
-        result = {"content": "", "image_url": None}
+        result = {"content": "", "image_url": None, "all_images": []}
 
         # 먼저 RSS에서 기본 내용 가져오기
         rss_content = ""
@@ -900,6 +967,8 @@ class NewsCollector:
             # 이미지 URL 저장
             if scraped.get("image_url"):
                 result["image_url"] = scraped["image_url"]
+            if scraped.get("all_images"):
+                result["all_images"] = scraped["all_images"]
         else:
             result["content"] = self._strip_html(rss_content)
 
@@ -940,8 +1009,8 @@ class NewsCollector:
             return html_content
 
     def _scrape_article(self, url: str) -> dict:
-        """기사 페이지에서 본문과 이미지 스크래핑"""
-        result = {"content": "", "image_url": None}
+        """기사 페이지에서 본문과 모든 이미지 스크래핑"""
+        result = {"content": "", "image_url": None, "all_images": []}
 
         try:
             headers = {
@@ -956,10 +1025,11 @@ class NewsCollector:
 
             soup = BeautifulSoup(response.text, "html.parser")
 
-            # 대표 이미지 추출
-            image_url = self._extract_main_image(soup, url)
-            if image_url:
-                result["image_url"] = image_url
+            # 모든 이미지 추출
+            all_images = self._extract_all_images(soup, url)
+            if all_images:
+                result["image_url"] = all_images[0]  # 첫 번째는 대표 이미지
+                result["all_images"] = all_images  # 모든 이미지
 
             # 일반적인 기사 본문 선택자들 시도
             content = None
@@ -1107,6 +1177,45 @@ class NewsCollector:
                         return image_url
 
         return None
+
+    def _extract_all_images(self, soup, base_url: str) -> list:
+        """기사의 모든 이미지 URL 추출"""
+        from urllib.parse import urljoin
+
+        images = []
+        seen_urls = set()
+
+        # 1. Open Graph 이미지 먼저 추가
+        og_image = soup.select_one('meta[property="og:image"]')
+        if og_image:
+            url = og_image.get("content")
+            if url and self._is_valid_image_url(url):
+                full_url = urljoin(base_url, url)
+                if full_url not in seen_urls:
+                    images.append(full_url)
+                    seen_urls.add(full_url)
+
+        # 2. 기사 본문 내 모든 이미지
+        article_selectors = [
+            "#article-view-content-div img",
+            "article img",
+            ".article-body img",
+            ".article_body img",
+            ".article-content img",
+            'div[itemprop="articleBody"] img',
+        ]
+
+        for selector in article_selectors:
+            for img in soup.select(selector):
+                url = img.get("src") or img.get("data-src") or img.get("data-original")
+                if url:
+                    full_url = urljoin(base_url, url)
+                    if full_url not in seen_urls and self._is_valid_image_url(full_url):
+                        images.append(full_url)
+                        seen_urls.add(full_url)
+
+        # 최대 10개까지만 (너무 많으면 페이지가 무거워짐)
+        return images[:10]
 
     def _is_valid_image_url(self, url: str) -> bool:
         """유효한 이미지 URL인지 확인"""
@@ -1540,12 +1649,14 @@ class AINewsBot:
 
             # Notion에 업로드
             try:
-                # 페이지 내용에 사용할 데이터 (원문 보존)
+                # 페이지 내용에 사용할 데이터
                 page_content = {
                     "summary": analysis.get("summary", ""),
-                    "key_points": analysis.get("key_points", []),
-                    "content": news["content"],  # 원문 그대로 사용
-                    "image_url": news.get("image_url"),  # 대표 이미지
+                    "key_sentences": analysis.get(
+                        "key_sentences", []
+                    ),  # 핵심 문장 (1~5개)
+                    "image_url": news.get("image_url"),
+                    "all_images": news.get("all_images", []),
                     "link": news["link"],
                     "date": news["date"],
                     "source": news["source"],
