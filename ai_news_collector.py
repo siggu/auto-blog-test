@@ -806,6 +806,14 @@ class NewsCollector:
                     agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                 )
 
+                # 디버그: 피드 상태 출력
+                if feed.bozo:
+                    print(f"⚠️ 피드 파싱 경고 ({feed_info['name']}): {feed.get('bozo_exception', 'Unknown error')}")
+                if not feed.entries:
+                    print(f"📭 피드 비어있음 ({feed_info['name']}): {feed_info['url']}")
+                else:
+                    print(f"✅ 피드 수집 ({feed_info['name']}): {len(feed.entries)}개 항목")
+
                 for entry in feed.entries[:10]:  # 각 피드에서 최대 10개
                     # 날짜 파싱 (다양한 필드 시도)
                     pub_date = self._parse_date(entry)
