@@ -44,7 +44,7 @@ jobs:
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT
             # 변경된 날짜 추출 (MM-DD.md 파일에서)
-            DATES=$(git diff --staged --name-only | grep -oP '\d{2}-\d{2}(?=\.md)' | sed 's/-/\//g' | sort -u | tr '\n' ', ' | sed 's/, $//')
+            DATES=$(git diff --staged --name-only | grep -oP '\d{2}-\d{2}(?=\.md)' | sed 's/-/\//g' | sort -u | paste -sd ', ')
             echo "dates=$DATES" >> $GITHUB_OUTPUT
           fi
 
