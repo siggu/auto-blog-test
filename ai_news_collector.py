@@ -1315,6 +1315,38 @@ class MarkdownArchive:
 
         return True
 
+    def regenerate_all_indexes(self):
+        """모든 월별 README.md 재생성"""
+        regenerated = 0
+
+        # 연도 폴더 탐색
+        for year_dir in os.listdir(self.base_dir):
+            year_path = os.path.join(self.base_dir, year_dir)
+            if not os.path.isdir(year_path) or not year_dir.isdigit():
+                continue
+
+            # 월 폴더 탐색
+            for month_dir in os.listdir(year_path):
+                month_path = os.path.join(year_path, month_dir)
+                if not os.path.isdir(month_path) or "월" not in month_dir:
+                    continue
+
+                # 일별 파일이 있는지 확인
+                has_daily_files = any(
+                    f.endswith(".md") and f != "README.md"
+                    for f in os.listdir(month_path)
+                )
+
+                if has_daily_files:
+                    # 임의의 날짜로 월 인덱스 업데이트 (월 정보만 필요)
+                    month_num = int(month_dir.replace("월", ""))
+                    dummy_date = datetime(int(year_dir), month_num, 1)
+                    self._update_monthly_index(month_path, dummy_date)
+                    print(f"✅ 재생성: {year_dir}/{month_dir}/README.md")
+                    regenerated += 1
+
+        return regenerated
+
     def _update_monthly_index(self, month_dir: str, news_date: datetime):
         """월 총괄 파일(README.md) 업데이트"""
         import re
@@ -1346,8 +1378,8 @@ class MarkdownArchive:
             with open(filepath, "r", encoding="utf-8") as f:
                 content = f.read()
 
-            # 뉴스 제목 추출
-            news_titles = re.findall(r"### 📰 (.+)", content)
+            # 뉴스 제목 추출 (### 뒤에 오는 제목, 단 📑 목차 제외)
+            news_titles = re.findall(r"^### (?!📑)(.+)", content, re.MULTILINE)
             news_count = len(news_titles)
             total_count += news_count
 
@@ -1580,9 +1612,17 @@ class AINewsBot:
             self.analyzer = NewsAnalyzer(OPENAI_API_KEY, provider="openai")
             print(f"🤖 OpenAI API 사용 (모델: gpt-5-nano) - 💰 최저가!")
 
-    def run(self, days: int = 1, use_ai: bool = True):
-        """뉴스 수집 및 업로드 실행"""
+    def run(self, days: int = 1, use_ai: bool = True, no_notion: bool = False):
+        """뉴스 수집 및 업로드 실행
+
+        Args:
+            days: 수집할 기간 (일)
+            use_ai: AI API 사용 여부
+            no_notion: True면 Notion 업로드 건너뛰기
+        """
         print(f"🔍 최근 {days}일 AI 뉴스 수집 중...")
+        if no_notion:
+            print("📝 Notion 업로드 비활성화 - 마크다운만 저장합니다.")
 
         # 뉴스 수집
         news_list = self.collector.collect_news(days=days)
@@ -1592,15 +1632,16 @@ class AINewsBot:
         skipped = 0
         filtered = 0
         md_saved = 0
+        saved_dates = set()  # 저장된 날짜들 수집
 
         for news in news_list:
-            # 중복 체크 (Notion)
-            notion_duplicate = self.notion.check_duplicate(DATABASE_ID, news["title"])
-
-            if notion_duplicate:
-                print(f"⏭️ 중복 건너뛰기: {news['title'][:30]}...")
-                skipped += 1
-                continue
+            # 중복 체크 (Notion) - no_notion 모드에서는 건너뛰기
+            if not no_notion:
+                notion_duplicate = self.notion.check_duplicate(DATABASE_ID, news["title"])
+                if notion_duplicate:
+                    print(f"⏭️ 중복 건너뛰기: {news['title'][:30]}...")
+                    skipped += 1
+                    continue
 
             # 뉴스 분석
             if use_ai:
@@ -1647,38 +1688,45 @@ class AINewsBot:
                 "중요도": {"select": {"name": analysis.get("importance", "📌 일반")}},
             }
 
-            # Notion에 업로드
-            try:
-                # 페이지 내용에 사용할 데이터
-                page_content = {
-                    "summary": analysis.get("summary", ""),
-                    "key_sentences": analysis.get(
-                        "key_sentences", []
-                    ),  # 핵심 문장 (1~5개)
-                    "image_url": news.get("image_url"),
-                    "all_images": news.get("all_images", []),
-                    "link": news["link"],
-                    "date": news["date"],
-                    "source": news["source"],
-                }
+            # Notion에 업로드 (no_notion 모드에서는 건너뛰기)
+            if not no_notion:
+                try:
+                    # 페이지 내용에 사용할 데이터
+                    page_content = {
+                        "summary": analysis.get("summary", ""),
+                        "key_sentences": analysis.get(
+                            "key_sentences", []
+                        ),  # 핵심 문장 (1~5개)
+                        "image_url": news.get("image_url"),
+                        "all_images": news.get("all_images", []),
+                        "link": news["link"],
+                        "date": news["date"],
+                        "source": news["source"],
+                    }
 
-                result = self.notion.create_page(DATABASE_ID, properties, page_content)
-                if "id" in result:
-                    img_icon = "🖼️" if news.get("image_url") else "📄"
-                    print(f"✅ {img_icon} Notion 업로드 완료: {news['title'][:40]}...")
-                    uploaded += 1
-                else:
-                    print(
-                        f"❌ Notion 업로드 실패: {result.get('message', 'Unknown error')}"
-                    )
-            except Exception as e:
-                print(f"❌ Notion 오류: {e}")
+                    result = self.notion.create_page(DATABASE_ID, properties, page_content)
+                    if "id" in result:
+                        img_icon = "🖼️" if news.get("image_url") else "📄"
+                        print(f"✅ {img_icon} Notion 업로드 완료: {news['title'][:40]}...")
+                        uploaded += 1
+                    else:
+                        print(
+                            f"❌ Notion 업로드 실패: {result.get('message', 'Unknown error')}"
+                        )
+                except Exception as e:
+                    print(f"❌ Notion 오류: {e}")
 
             # 마크다운 파일에 저장
             try:
                 if self.archive.save_news(news, analysis):
                     print(f"📝 마크다운 저장 완료: {news['title'][:40]}...")
                     md_saved += 1
+                    # 저장된 날짜 수집 (MM/DD 형식)
+                    try:
+                        news_date = datetime.strptime(news["date"], "%Y-%m-%d")
+                        saved_dates.add(f"{news_date.month}/{news_date.day}")
+                    except:
+                        pass
                 else:
                     print(f"⏭️ 마크다운 중복 건너뛰기: {news['title'][:30]}...")
             except Exception as e:
@@ -1689,7 +1737,15 @@ class AINewsBot:
         print(f"   - 마크다운 저장: {md_saved}개")
         print(f"   - AI 비관련 제외: {filtered}개")
         print(f"   - 중복 건너뛰기: {skipped}개")
-        return uploaded
+
+        # 결과 반환: (업로드 수, 마크다운 저장 수, 저장된 날짜 리스트)
+        return {
+            "uploaded": uploaded,
+            "md_saved": md_saved,
+            "filtered": filtered,
+            "skipped": skipped,
+            "saved_dates": sorted(saved_dates),  # 정렬된 날짜 리스트
+        }
 
 
 # =============================================================================
@@ -1714,11 +1770,25 @@ if __name__ == "__main__":
     parser.add_argument(
         "--archive-dir", type=str, default=None, help="마크다운 아카이브 저장 경로"
     )
+    parser.add_argument(
+        "--no-notion", action="store_true", help="Notion 업로드 비활성화 (마크다운만 저장)"
+    )
+    parser.add_argument(
+        "--regenerate-index", action="store_true", help="모든 월별 README.md 재생성"
+    )
 
     args = parser.parse_args()
 
-    # API 키 확인
-    if not NOTION_API_KEY:
+    # --regenerate-index 모드
+    if args.regenerate_index:
+        print("🔄 월별 README.md 재생성 중...")
+        archive = MarkdownArchive()
+        count = archive.regenerate_all_indexes()
+        print(f"\n✅ {count}개의 README.md 파일이 재생성되었습니다.")
+        exit(0)
+
+    # API 키 확인 (no_notion 모드가 아닐 때만 Notion API 키 필요)
+    if not args.no_notion and not NOTION_API_KEY:
         print("❌ NOTION_API_KEY 환경 변수를 설정해주세요.")
         exit(1)
 
@@ -1731,4 +1801,4 @@ if __name__ == "__main__":
             exit(1)
 
     bot = AINewsBot(archive_dir=args.archive_dir, provider=args.provider)
-    bot.run(days=args.days, use_ai=not args.no_ai)
+    bot.run(days=args.days, use_ai=not args.no_ai, no_notion=args.no_notion)

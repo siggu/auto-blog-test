@@ -1,0 +1,54 @@
+name: Daily AI News Collection
+
+on:
+  schedule:
+    # 매일 오전 9시 (한국 시간) = UTC 0시
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 수동 실행 가능
+
+jobs:
+  collect-news:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests feedparser python-dotenv beautifulsoup4
+
+      - name: Run news collector
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}  # Claude 사용 시 활성화
+        run: |
+          python ai_news_collector.py --no-notion --days 1
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git add -A
+          if git diff --staged --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            # 변경된 날짜 추출 (MM-DD.md 파일에서)
+            DATES=$(git diff --staged --name-only | grep -oP '\d{2}-\d{2}(?=\.md)' | sed 's/-/\//g' | sort -u | tr '\n' ', ' | sed 's/, $//')
+            echo "dates=$DATES" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs: ${{ steps.changes.outputs.dates }}"
+          git push
