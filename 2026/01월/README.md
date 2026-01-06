@@ -1,12 +1,24 @@
 # 🤖 AI 뉴스 아카이브 - 2026년 01월
 
-> 총 **90건**의 뉴스가 수집되었습니다.
+> 총 **106건**의 뉴스가 수집되었습니다.
 
 ## 📑 목차
 
 
 
-### 📅 1월 5일 (29건)
+### 📅 1월 6일 (8건)
+📄 [01-06.md](./01-06.md)
+
+- 업스테이지, '솔라 오픈' 오픈 소스 공개..."딥시크-R1 넘은 프롬 스크래치 모델"
+- [신년기획④] 발전소는 서부에, 일자리는 동부에
+- 기업 AI 도입의 핵심으로 떠오른 '통합 온톨로지'란
+- ﻿"모바일·TV·가전에 AI 통합"... 삼성전자, CES서 'AI 대중화' 비전 공개
+- 차세대 AI PC를 위한 프로세서 '인텔 코어 Ultra 시리즈 3' 출시
+- 엔비디아 젠슨 황, “로보틱스 분야에도 ‘챗GPT 시대’가 도래했다
+- SK AX ‘생성형AI 활용 자격증’ 국내 첫 정부공인…산업 AI전환 가속 돕는다
+- 퀄컴, ‘피지컬 AI’ 전면전 선언…가정용 로봇부터 휴머노이드까지 아우르는 로보틱스 풀스택...
+
+### 📅 1월 5일 (37건)
 📄 [01-05.md](./01-05.md)
 
 - [신년기획③] 동부권 발전전략의 첫 관문, 전력과 전선 이야기
@@ -38,6 +50,14 @@
 - 조달청, AI 기반 SW 조달 활성화∙기업 권익 보호∙구매 편의성 제고... 디지털서비스·...
 - 정의선 회장, "AI는 거대한 패러다임 전환 기술... AI 역량 내재화하지 못한 기업, ...
 - What’s next for AI in 2026
+- 한화로보틱스, 우창표 한화비전 미래혁신TF장 신임 대표이사 내정
+- "스스로 생각하고 답변한다"... 카카오, 한국형 하이브리드 멀티모달 언어모델 공개
+- The creator of Claude Code just revealed his workf...
+- Nvidia launches Vera Rubin AI computing platform a...
+- That viral Reddit post about food delivery apps wa...
+- The Alexa Plus website is now available to everyon...
+- The best tech announced at CES 2026 so far
+- Gemini on Google TV is getting Nano Banana and voi...
 
 ### 📅 1월 4일 (9건)
 📄 [01-04.md](./01-04.md)
