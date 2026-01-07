@@ -1,12 +1,25 @@
 # 🤖 AI 뉴스 아카이브 - 2026년 01월
 
-> 총 **106건**의 뉴스가 수집되었습니다.
+> 총 **133건**의 뉴스가 수집되었습니다.
 
 ## 📑 목차
 
 
 
-### 📅 1월 6일 (8건)
+### 📅 1월 7일 (9건)
+📄 [01-07.md](./01-07.md)
+
+- [신년기획⑤] 탄소를 줄이는 길은 하나가 아니다
+- '클로드 코드' 제작자가 공개한 제품 사용법이 화제가 된 이유는
+- AI가 생각하는 2026년 AI 주요 이슈는?
+- SKT 정예팀, 'A.X K1' 기술 보고서 공개...수학·코딩 벤치마크에서 딥시크-V3....
+- NXP, SDV 위한 신규 S32N7 프로세서 시리즈 출시...시스템 복잡성 줄이고, AI...
+- '스노우플레이크 코텍스 AI'에서 '제미나이 3' 모델 지원...데이터 이동 없이 개발·배...
+- 젠슨 황 CEO, 기술 분야 최고 권위의 '2026년 IEEE 최고 명예 메달' 수상자로 ...
+- 삼성전자, CES 2026서 '삼성 기술 포럼' 열고 '인간 중심 디자인' 강조
+- 레드햇, 엔비디아와 가속화된 '엔터프라이즈 AI' 위한 개방형 혁신
+
+### 📅 1월 6일 (26건)
 📄 [01-06.md](./01-06.md)
 
 - 업스테이지, '솔라 오픈' 오픈 소스 공개..."딥시크-R1 넘은 프롬 스크래치 모델"
@@ -17,6 +30,24 @@
 - 엔비디아 젠슨 황, “로보틱스 분야에도 ‘챗GPT 시대’가 도래했다
 - SK AX ‘생성형AI 활용 자격증’ 국내 첫 정부공인…산업 AI전환 가속 돕는다
 - 퀄컴, ‘피지컬 AI’ 전면전 선언…가정용 로봇부터 휴머노이드까지 아우르는 로보틱스 풀스택...
+- "딥시크의 mHC, LLM 학습 통념 깼지만 실제 구현은 난제"
+- 오픈AI 추론 모델 이끈 연구 책임자 퇴사...'IMO 금메달 모델' 개발 끝났나
+- 엔비디아, 자율주행·로봇용 오픈 소스 제품군 '알파마요' 출시
+- 애플 출신 로봇 스타트업이 5년 만에 스텔스를 벗어난 이유는
+- 텐센트, 사용자에게 욕설한 AI 챗봇 문제로 사과...중국 첫 사례로 주목
+- "AI가 설계한 분자 센서, 조기 암 진단의 새 길 열다!"... MIT 연구진, 소변 한...
+- 마이크로소프트, ‘오스모스(Osmos)’ 인수... “AI 에이전트가 데이터 준비까지 맡는...
+- Why AI predictions are so hard
+- Lenovo’s joining the bandwagon with concept AI gla...
+- Jake Sullivan is furious that Trump destroyed his ...
+- Grok is undressing children — can the law stop it?
+- Universal Music signs a new AI deal with Nvidia
+- AI moves into the real world as companion robots a...
+- Vibe Bot is an AI agent that sits on your desk
+- Razer is making an AI anime waifu hologram for you...
+- Razer’s AI wearable is a headset with built-in cam...
+- Razer is making computers for AI developers now
+- Reolink made a local AI hub for its security camer...
 
 ### 📅 1월 5일 (37건)
 📄 [01-05.md](./01-05.md)
