@@ -1,12 +1,12 @@
 # 🤖 AI 뉴스 아카이브 - 2026년 01월
 
-> 총 **133건**의 뉴스가 수집되었습니다.
+> 총 **141건**의 뉴스가 수집되었습니다.
 
 ## 📑 목차
 
 
 
-### 📅 1월 7일 (9건)
+### 📅 1월 7일 (17건)
 📄 [01-07.md](./01-07.md)
 
 - [신년기획⑤] 탄소를 줄이는 길은 하나가 아니다
@@ -18,6 +18,14 @@
 - 젠슨 황 CEO, 기술 분야 최고 권위의 '2026년 IEEE 최고 명예 메달' 수상자로 ...
 - 삼성전자, CES 2026서 '삼성 기술 포럼' 열고 '인간 중심 디자인' 강조
 - 레드햇, 엔비디아와 가속화된 '엔터프라이즈 AI' 위한 개방형 혁신
+- LLMs contain a LOT of parameters. But what’s a par...
+- Nous Research's NousCoder-14B is an open-source co...
+- Ford’s AI voice assistant is coming later this yea...
+- Character.AI and Google settle teen suicide and se...
+- X’s deepfake machine is infuriating policymakers a...
+- OpenAI launches ChatGPT Health, encouraging users ...
+- Dell admits consumers don’t care about AI PCs
+- The best tech announced at CES 2026 so far
 
 ### 📅 1월 6일 (26건)
 📄 [01-06.md](./01-06.md)
