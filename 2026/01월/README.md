@@ -1,12 +1,18 @@
 # 🤖 AI 뉴스 아카이브 - 2026년 01월
 
-> 총 **181건**의 뉴스가 수집되었습니다.
+> 총 **196건**의 뉴스가 수집되었습니다.
 
 ## 📑 목차
 
 
 
-### 📅 1월 9일 (10건)
+### 📅 1월 10일 (2건)
+📄 [01-10.md](./01-10.md)
+
+- 젠슨 황이 2025년 AI의 가장 큰 발전으로 꼽은 2가지 기술은
+- 챗봇에 ‘건강’ 얘기 물어보시나요? 챗GPT 헬스 출시!
+
+### 📅 1월 9일 (23건)
 📄 [01-09.md](./01-09.md)
 
 - 진보당, AI를 전면에 내세운 '호남 산업 재편' 구상
@@ -19,6 +25,19 @@
 - 김정규 SK스퀘어 사장 “AI가 차이를 만드는 열쇠”...중점 과제는 'AI 전환·AI·반...
 - "당뇨병, 바늘 없는 혈당 측정 시대로"…아폴론, 美서 ‘바늘 없는 혈당측정’ 핵심 특허 ...
 - '인공지능, 성장·안보·복지의 축으로'... 이 대통령, “국익 중심 실용외교·국민 체감 ...
+- 순천대 총동창회, 대학 통합 재논의 결정 환영
+- 유럽, X·그록 전방위 압박...“성적 이미지 용납 못 해”
+- 오픈AI, 1년 새 9번째 스타트업 인수...임원 코칭 AI 도구 컨보고 인재 확보
+- MS, '코파일럿'에 상품 구매 버튼 추가
+- 누스 리서치, 4일 훈련으로 폐쇄 모델 맞먹는 코딩 모델 개발
+- 과기부, ‘CES’ 현장에서 AI반도체 혁신기업과 간담회 개최
+- AI is coming for collectibles next
+- The latest on Grok&#8217;s gross AI deepfakes prob...
+- Meta expands nuclear power ambitions to include Bi...
+- Baldur&#8217;s Gate 3 studio says it won&#8217;t u...
+- Democrats ask Apple and Google to remove X’s undre...
+- The best tech announced at CES 2026 so far
+- No, Grok hasn&#8217;t paywalled its deepfake image...
 
 ### 📅 1월 8일 (30건)
 📄 [01-08.md](./01-08.md)
