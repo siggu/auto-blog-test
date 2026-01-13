@@ -1,12 +1,26 @@
 # 🤖 AI 뉴스 아카이브 - 2026년 01월
 
-> 총 **227건**의 뉴스가 수집되었습니다.
+> 총 **257건**의 뉴스가 수집되었습니다.
 
 ## 📑 목차
 
 
 
-### 📅 1월 12일 (9건)
+### 📅 1월 13일 (10건)
+📄 [01-13.md](./01-13.md)
+
+- "GPT-5.2, 30년 된 수학 난제 해결"...'AI 연구원' 새로운 시대 맞아
+- CES의 하이라이트는 로봇! 상용화는 '글쎄….'
+- 애플, 시리에 '제미나이' 탑재 공식 발표...구글, '챗GPT' 추격 발판
+- AI가 만든 기회, AI가 키운 위협… 카스퍼스키, 엔터테인먼트 산업 보안 경고
+- 우울증, AI는 말하지 않아도 알 수 있다… KAIST 허원도 석좌교수팀, AI 기반 일상...
+- AI로 똑똑해진 SKT 필터링 기술... SKT, 보이스피싱·스팸 35% 더 막아냈다
+- 잡코리아, 30년 데이터 기반 AI 추천의 힘… 2년간 입사지원 280% 성장
+- NIA.김성현 인공지능데이터본부 국가데이터인프라팀장 등 팀장급 인사 단행
+- GIST-KFIA, 인공지능 반도체 전주기 생태계 구축한다
+- 애플, “결국 AI 두뇌에 구글 택했다”… ‘제미나이’ 품은 애플 인텔리전스
+
+### 📅 1월 12일 (29건)
 📄 [01-12.md](./01-12.md)
 
 - ‘인공지능 기반 창작부터 분야별 전문성까지’...문체부, '26년 총 430억 원 투입 '...
@@ -18,6 +32,26 @@
 - ﻿올거나이즈, 우리투자증권과 금융 특화 AI 플랫폼 개발
 - [기획③] 순천에 반도체가 오려면, 지금 무엇부터 준비해야 할까
 - "미생물 유전자 기능 발견 획기적 가속"...KAIST, AI로 오랜 난제인 유전자 기능 ...
+- "국가대표 AI ‘수리 추론 영역’ 테스트서 LG·업스테이지가 2강 차지"
+- 오픈AI, 일자리 찾고 이력서 작성 돕는 '챗GPT 잡스' 출시 임박
+- 앤트로픽 "가장 강력한 '탈옥 방지' 시스템 개발...비용도 대폭 절감"
+- WEF의 2030년 AI 일자리 예측 4가지 시나리오와 '후회없는 전략'이란
+- 메타·하버드 "중형 모델 한계, 에이전트 설계·도구 사용으로 극복"
+- AI 발전 저지 위한 ‘데이터 오염’ 집단 움직임 등장
+- 구글, 특정 의료 검색어에 대한 AI 검색 결과 삭제
+- GE헬스케어, 동탄시티병원 아시아 지역 레퍼런스 사이트 지정
+- BHSN-법무법인 율촌, 리걸 AI ‘아이율’ 본격 가동...폐쇄형 환경에서 AI 및 RA...
+- UNIST-울산대, 美 캘리포니아주립대와 ‘두뇌’ 맞댔다
+- CES showed me why Chinese tech companies feel so o...
+- Meet the new biologists treating LLMs like aliens
+- Hyperscale AI data centers: 10 Breakthrough Techno...
+- Mechanistic interpretability: 10 Breakthrough Tech...
+- AI companions: 10 Breakthrough Technologies 2026
+- Generative coding: 10 Breakthrough Technologies 20...
+- Anthropic launches Cowork, a Claude Desktop agent ...
+- UK pushes up a law criminalizing deepfake nudes in...
+- Anthropic wants you to use Claude to &#8216;Cowork...
+- Google brings buy buttons to Gemini and AI search
 
 ### 📅 1월 11일 (16건)
 📄 [01-11.md](./01-11.md)
