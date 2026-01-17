@@ -1,12 +1,19 @@
 # 🤖 AI 뉴스 아카이브 - 2026년 01월
 
-> 총 **356건**의 뉴스가 수집되었습니다.
+> 총 **378건**의 뉴스가 수집되었습니다.
 
 ## 📑 목차
 
 
 
-### 📅 1월 16일 (6건)
+### 📅 1월 17일 (3건)
+📄 [01-17.md](./01-17.md)
+
+- 오픈AI, 미국부터 '챗GPT'에 광고 도입...'챗GPT 고' 전 세계 확대
+- AI가 주는 2가지 착각...'자신감 상실'과 '전문성의 환상'
+- 테슬라, FSD를 구독제로… 한달에 이 가격?
+
+### 📅 1월 16일 (25건)
 📄 [01-16.md](./01-16.md)
 
 - 머스크, '그록'의 선정적 이미지 편집 기능 전격 차단
@@ -15,6 +22,25 @@
 - “독파모 통해 대한민국 AI 역량 증명”...SKT 정예팀, 이번엔 멀티모달로 확장
 - 오픈AI, “국내 리셀러 파트너는 삼성SDS 유일”… 서비스 파트너에 LG CNS
 - “KAIST, 세계 1위 AI 연구 집단으로”… 김재철 명예회장, 총 603억 원 기부
+- 오픈AI, ‘챗GPT 번역’ 출시...구글 번역에 도전
+- 앤트로픽, 토큰 낭비하는 MCP '사용 설명서' 문제 해결
+- 오픈AI, 로봇·AI 기기 보급 위해 미국 공급업체 물색
+- 미라 무라티의 TML, 공동 창립자 이탈...오픈AI로 복귀
+- 레플릿, 아마추어도 모바일 앱 제작·배포 가능한 바이브 코딩 기능 출시
+- 가트너 "2026년 AI '환멸의 골짜기' 맞을 것...기업은 ROI에 본격 집중"
+- 사용자 1억명 돌파한 '큐원' 모바일 앱, 알리바바 생태계 통합으로 차별화
+- 국가 AI대전환 위한 선도 프로젝트...개인정보위, '개인정보 이노베이션 존' 신규 운영기...
+- 정부, 나노⸱소재 원천 기술개발 및 인공지능 기반 확충에 ’26년 2,754억 원 투자
+- "질문에 답하는 AI에서 실제로 행동하는 인공지능으로"...알리바바, '큐웬 앱' 고도화 ...
+- Listen Labs raises $69M after viral billboard hiri...
+- Trump and Mid-Atlantic governors want tech compani...
+- Google brings its AI videomaker to Workspace users
+- Ads are coming soon to ChatGPT, starting with shop...
+- OpenAI releases a cheaper ChatGPT subscription
+- X is still having issues following an hour-long ou...
+- I saw the future of retail, and it’s all AI
+- Siri is a Gemini
+- ‘Sideshow’ concerns and billionaire dreams: What I...
 
 ### 📅 1월 15일 (32건)
 📄 [01-15.md](./01-15.md)
